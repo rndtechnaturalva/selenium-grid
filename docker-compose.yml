@@ -36,13 +36,9 @@ services:
       - SE_SCREEN_WIDTH=${SCREEN_WIDTH}
       - SE_SCREEN_HEIGHT=${SCREEN_HEIGHT}
       - SE_SCREEN_DEPTH=${SCREEN_DEPTH}
-      - SE_VIDEO_RECORD_SESSION=true
-      - SE_VIDEO_PATH=/opt/selenium/videos
     ports:
       - "5900:5900"
       - "7900:7900"
-    volumes:
-      - ${VIDEO_OUTPUT}:/opt/selenium/videos
     networks:
       - ${GRID_NETWORK}
 
@@ -63,13 +59,9 @@ services:
       - SE_SCREEN_WIDTH=${SCREEN_WIDTH}
       - SE_SCREEN_HEIGHT=${SCREEN_HEIGHT}
       - SE_SCREEN_DEPTH=${SCREEN_DEPTH}
-      - SE_VIDEO_RECORD_SESSION=true
-      - SE_VIDEO_PATH=/opt/selenium/videos
     ports:
       - "5901:5900"
       - "7901:7900"
-    volumes:
-      - ${VIDEO_OUTPUT}:/opt/selenium/videos
     networks:
       - ${GRID_NETWORK}
 
@@ -90,32 +82,9 @@ services:
       - SE_SCREEN_WIDTH=${SCREEN_WIDTH}
       - SE_SCREEN_HEIGHT=${SCREEN_HEIGHT}
       - SE_SCREEN_DEPTH=${SCREEN_DEPTH}
-      - SE_VIDEO_RECORD_SESSION=true
-      - SE_VIDEO_PATH=/opt/selenium/videos
     ports:
       - "5902:5900"
       - "7902:7900"
-    volumes:
-      - ${VIDEO_OUTPUT}:/opt/selenium/videos
-    networks:
-      - ${GRID_NETWORK}
-
-  video-processor:
-    image: selenium/video:${SELENIUM_VIDEO_TAG}
-    container_name: selenium-video-processor
-    restart: unless-stopped
-    depends_on:
-      - selenium-hub
-    environment:
-      - SE_EVENT_BUS_HOST=selenium-hub
-      - SE_EVENT_BUS_PUBLISH_PORT=4442
-      - SE_EVENT_BUS_SUBSCRIBE_PORT=4443
-      - SE_SCREEN_WIDTH=${SCREEN_WIDTH}
-      - SE_SCREEN_HEIGHT=${SCREEN_HEIGHT}
-      - SE_FRAME_RATE=24
-      - SE_VIDEO_PATH=/videos
-    volumes:
-      - ${VIDEO_OUTPUT}:/videos
     networks:
       - ${GRID_NETWORK}
 

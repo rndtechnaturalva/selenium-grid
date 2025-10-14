@@ -1,6 +1,6 @@
 # Selenium Grid via Docker Compose
 
-Selenium Grid 4 with Chrome, Firefox, and Edge nodes, VNC access, and video recording baked in for local or CI usage.
+Selenium Grid 4 with Chrome, Firefox, and Edge nodes plus VNC access for local or CI usage.
 
 ## Requirements
 
@@ -12,12 +12,11 @@ Selenium Grid 4 with Chrome, Firefox, and Edge nodes, VNC access, and video reco
 | Service | Image | Purpose | Ports |
 | --- | --- | --- | --- |
 | `selenium-hub` | `selenium/hub:${SELENIUM_VERSION}` | Routes and manages sessions | 4442-4444 |
-| `selenium-node-chrome` | `selenium/node-chrome:${SELENIUM_VERSION}` | Chrome browser with VNC & recording | 5900 (VNC), 7900 (noVNC) |
-| `selenium-node-firefox` | `selenium/node-firefox:${SELENIUM_VERSION}` | Firefox browser with VNC & recording | 5901, 7901 |
-| `selenium-node-edge` | `selenium/node-edge:${SELENIUM_VERSION}` | Edge browser with VNC & recording | 5902, 7902 |
-| `selenium-video-processor` | `selenium/video:${SELENIUM_VIDEO_TAG}` | Processes session recordings | — |
+| `selenium-node-chrome` | `selenium/node-chrome:${SELENIUM_VERSION}` | Chrome browser with VNC | 5900 (VNC), 7900 (noVNC) |
+| `selenium-node-firefox` | `selenium/node-firefox:${SELENIUM_VERSION}` | Firefox browser with VNC | 5901, 7901 |
+| `selenium-node-edge` | `selenium/node-edge:${SELENIUM_VERSION}` | Edge browser with VNC | 5902, 7902 |
 
-Session videos are saved to `./videos`, while Grid logs land in `./logs`.
+Grid logs land in `./logs` for easy inspection, and each node now advertises the public URI `http://${PUBLIC_GRID_HOST}:${PUBLIC_NODE_PORT}` in the Grid UI.
 
 ## Getting started
 
@@ -52,15 +51,22 @@ docker compose up -d
 
 No passwords are required (`SE_VNC_NO_PASSWORD=1`).
 
-### Video output
+### Optional video recording
 
-Each completed session writes `*.mp4` files into the `videos` folder. Clean it periodically to avoid filling up disk space.
+The stack ships without the ffmpeg video sidecar to keep things light for pure automation. If you need session recordings:
+
+1. Restore the `selenium/video` service and related environment variables from the `video-processor` block in `docker-compose.yml`.
+2. Reintroduce the `SELENIUM_VIDEO_TAG` and `VIDEO_OUTPUT` entries in `.env` (for example `SELENIUM_VIDEO_TAG=ffmpeg-4.22.0-20241004`).
+3. Re-add `SE_VIDEO_RECORD_SESSION=true` and `SE_VIDEO_PATH=/opt/selenium/videos` to each node service and mount the video volume.
+
+Once those pieces are back, recordings will be emitted to the `videos/` directory.
 
 ## Configuration reference
 
 All key settings live in `.env`:
 
-- `SELENIUM_VERSION` and `SELENIUM_VIDEO_TAG` keep the stack on a matching release.
+- `SELENIUM_VERSION` keeps hub and nodes aligned to the same release.
+- `PUBLIC_GRID_HOST` and `PUBLIC_NODE_PORT` control the URI shown in the Grid UI (and in node metadata). Set this to a hostname users can reach, such as `selenium.nhi.co.id`.
 - `SCREEN_WIDTH`, `SCREEN_HEIGHT`, `SCREEN_DEPTH` control the virtual display.
 - `SE_SESSION_TIMEOUT` and `SE_SESSION_REQUEST_TIMEOUT` help tune long-running workflows.
 - `SE_NODE_MAX_SESSIONS` plus `SE_NODE_OVERRIDE_MAX_SESSIONS` let you scale concurrency per node.
@@ -80,12 +86,11 @@ python tests\ping_grid.py
 
 ## CI pointers
 
-- Persist the `videos/` and `logs/` directories as artifacts for debugging.
+- Persist the `logs/` directory as build artifacts for debugging.
 - Use `docker compose pull` during CI warmup to avoid cold-start delays.
 - Increase `SE_SESSION_TIMEOUT` for long suites or reduce it if you want faster cleanup of orphan sessions.
 
 ## Troubleshooting
 
 - **Browser sessions never start**: ensure ports 4442-4444 are free and Docker Desktop has enough memory.
-- **Video files are empty**: confirm the `selenium-video-processor` container is running and the `videos/` directory is writable.
 - **VNC refuses connection**: some clients require the `vnc://` scheme (e.g., `vnc://localhost:5900`).

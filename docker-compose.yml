@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # Selenium Hub
   selenium-hub:
@@ -19,7 +17,6 @@ services:
   # Chrome Node
   chrome:
     image: selenium/node-chrome:4.15.0
-    container_name: selenium-node-chrome
     depends_on:
       - selenium-hub
     environment:
@@ -37,7 +34,6 @@ services:
   # Firefox Node
   firefox:
     image: selenium/node-firefox:4.15.0
-    container_name: selenium-node-firefox
     depends_on:
       - selenium-hub
     environment:
@@ -55,7 +51,6 @@ services:
   # Edge Node
   edge:
     image: selenium/node-edge:4.15.0
-    container_name: selenium-node-edge
     depends_on:
       - selenium-hub
     environment:

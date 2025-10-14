@@ -1,11 +1,34 @@
 # Local Python environment
 .venv/
 __pycache__/
+.python-version
+
+# Python artifacts
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+coverage.xml
+htmlcov/
 
 # Selenium artifacts
-videos/*.mp4
-logs/*.log
-logs/*.json
+videos/*
+!videos/.gitkeep
+logs/*
+!logs/.gitkeep
+*.log
+*.json
+
+# Docker & Compose overrides
+docker-compose.override.yml
+docker-compose.local.yml
+.env.local
+
+# IDE & editor folders
+.vscode/
+.idea/
+*.code-workspace
 
 # OS cruft
 .DS_Store

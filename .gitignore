@@ -12,11 +12,13 @@ __pycache__/
 coverage.xml
 htmlcov/
 
-# Selenium artifacts
+# Runtime artifacts
 videos/*
 !videos/.gitkeep
 logs/*
 !logs/.gitkeep
+browserless-data/*
+!browserless-data/.gitkeep
 *.log
 *.json
 

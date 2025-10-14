@@ -1,96 +1,117 @@
-# Selenium Grid via Docker Compose
+# Browserless Automation Stack
 
-Selenium Grid 4 with Chrome, Firefox, and Edge nodes plus VNC access for local or CI usage.
+This project packages [browserless](https://www.browserless.io/) via Docker Compose so you can run headless Chrome for automation, scraping, or testing without maintaining a full Selenium Grid.
 
 ## Requirements
 
 - Docker Desktop 4.0+ with Compose V2 (`docker compose` command)
-- At least 6 GB of free RAM (each browser node starts with 2 GB shared memory)
+- Roughly 2 GB of free RAM per concurrent Chrome session (adjust via `.env`)
 
 ## What's inside
 
 | Service | Image | Purpose | Ports |
 | --- | --- | --- | --- |
-| `selenium-hub` | `selenium/hub:${SELENIUM_VERSION}` | Routes and manages sessions | 4442-4444 |
-| `selenium-node-chrome` | `selenium/node-chrome:${SELENIUM_VERSION}` | Chrome browser with VNC | 5900 (VNC), 7900 (noVNC) |
-| `selenium-node-firefox` | `selenium/node-firefox:${SELENIUM_VERSION}` | Firefox browser with VNC | 5901, 7901 |
-| `selenium-node-edge` | `selenium/node-edge:${SELENIUM_VERSION}` | Edge browser with VNC | 5902, 7902 |
+| `browserless` | `browserless/chrome:${BROWSERLESS_TAG}` | Headless Chrome runtime with browserless API & WebDriver bridge | `${BROWSERLESS_PORT}` (API), `${BROWSERLESS_DEBUG_PORT}` (DevTools) |
 
-Grid logs land in `./logs` for easy inspection, and each node now advertises the public URI `http://${PUBLIC_GRID_HOST}:${PUBLIC_NODE_PORT}` in the Grid UI.
+Logs are written to `./logs`, while browserless state (cache, user data, screenshots) persists in `./browserless-data`.
 
 ## Getting started
 
-1. Tweak `.env` if you need different versions or screen dimensions.
-2. Launch the grid:
+1. Update `.env` with the host name you will expose publicly (`BROWSERLESS_HOST`) and tweak concurrency limits if needed.
+2. Start browserless:
 
-```powershell
-docker compose up -d
+   ```powershell
+   docker compose up -d
+   ```
+
+3. Verify the service is healthy:
+
+   ```powershell
+   docker compose ps
+   docker compose logs -f browserless
+   ```
+
+4. Hit the API at <http://localhost:${BROWSERLESS_PORT}/> (or the hostname you configured) to see the status JSON.
+
+## Using browserless from your code
+
+### Selenium (Python example)
+
+```python
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+
+options = Options()
+options.add_argument("--disable-gpu")
+
+driver = webdriver.Remote(
+    command_executor="http://localhost:3000/webdriver",
+    options=options,
+)
+driver.get("https://example.com")
+print(driver.title)
+driver.quit()
 ```
 
-3. Visit the Grid console at <http://localhost:4444/ui> to watch sessions connect.
+Replace `localhost:3000` with `selenium.nhi.co.id:${BROWSERLESS_PORT}` for remote access. If you set `BROWSERLESS_TOKEN`, add:
 
-### Useful commands
+```python
+options.set_capability("browserless:token", "your-token")
+```
 
-- Tail hub logs
+### Playwright / Puppeteer
 
-  ```powershell
-  docker compose logs -f selenium-hub
-  ```
+Browserless also exposes the standard `/playwright` and `/puppeteer` endpoints. Example with Node.js and Playwright:
 
-- Stop and clean everything
+```javascript
+import { chromium } from 'playwright';
 
-  ```powershell
-  docker compose down -v
-  ```
-
-### VNC and noVNC access
-
-- Chrome: `vnc://localhost:5900` or <http://localhost:7900>
-- Firefox: `vnc://localhost:5901` or <http://localhost:7901>
-- Edge: `vnc://localhost:5902` or <http://localhost:7902>
-
-No passwords are required (`SE_VNC_NO_PASSWORD=1`).
-
-### Optional video recording
-
-The stack ships without the ffmpeg video sidecar to keep things light for pure automation. If you need session recordings:
-
-1. Restore the `selenium/video` service and related environment variables from the `video-processor` block in `docker-compose.yml`.
-2. Reintroduce the `SELENIUM_VIDEO_TAG` and `VIDEO_OUTPUT` entries in `.env` (for example `SELENIUM_VIDEO_TAG=ffmpeg-4.22.0-20241004`).
-3. Re-add `SE_VIDEO_RECORD_SESSION=true` and `SE_VIDEO_PATH=/opt/selenium/videos` to each node service and mount the video volume.
-
-Once those pieces are back, recordings will be emitted to the `videos/` directory.
+const browser = await chromium.connectOverCDP('ws://selenium.nhi.co.id:3000');
+const context = await browser.newContext();
+const page = await context.newPage();
+await page.goto('https://example.com');
+console.log(await page.title());
+await browser.close();
+```
 
 ## Configuration reference
 
-All key settings live in `.env`:
+Key environment variables live in `.env`:
 
-- `SELENIUM_VERSION` keeps hub and nodes aligned to the same release.
-- `PUBLIC_GRID_HOST` and `PUBLIC_NODE_PORT` control the URI shown in the Grid UI (and in node metadata). Set this to a hostname users can reach, such as `selenium.nhi.co.id`.
-- `SCREEN_WIDTH`, `SCREEN_HEIGHT`, `SCREEN_DEPTH` control the virtual display.
-- `SE_SESSION_TIMEOUT` and `SE_SESSION_REQUEST_TIMEOUT` help tune long-running workflows.
-- `SE_NODE_MAX_SESSIONS` plus `SE_NODE_OVERRIDE_MAX_SESSIONS` let you scale concurrency per node.
+- `BROWSERLESS_TAG` — docker image tag, e.g. `latest` or a pinned version.
+- `BROWSERLESS_HOST` — host name you expose to clients (`selenium.nhi.co.id`).
+- `BROWSERLESS_PORT` / `BROWSERLESS_DEBUG_PORT` — forwarded ports for the HTTP API and DevTools protocol.
+- `BROWSERLESS_MAX_CONCURRENT` — maximum parallel sessions before queueing.
+- `BROWSERLESS_QUEUE_LENGTH` — how many queued sessions are allowed.
+- `BROWSERLESS_PREBOOT` — whether to keep Chrome warm for faster cold starts.
+- `BROWSERLESS_REFRESH_INTERVAL` — milliseconds before Chrome instances are recycled.
+- `BROWSERLESS_ENABLE_DEBUGGER` — allow the live debugger UI.
+- `BROWSERLESS_BLOCK_ADS` — enable built-in ad/tracker blocking.
+- `BROWSERLESS_TOKEN` — optional API token; leave blank to disable auth.
+- `BROWSERLESS_SCREEN_*` — default viewport dimensions.
+- `GRID_NETWORK` — compose network name (defaults to `browserless`).
 
-## Health check from code
+## Smoke test
 
-A minimal Python test script (`tests/ping_grid.py`) is included. It spins up a Chrome session through the Grid, fetches example.com, and quits. Run it after the containers are healthy to confirm end-to-end functionality.
+A Python smoke test lives in `tests/ping_grid.py`. It now targets browserless' WebDriver bridge:
 
 ```powershell
 python -m venv .venv
-.\.venv\Scripts\Activate.ps1
+\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 python tests\ping_grid.py
 ```
 
-> Tip: Run `docker compose ps` to ensure the Chrome node is `Running` before executing the script.
+Set `BROWSERLESS_WEBDRIVER_URL` or `BROWSERLESS_TOKEN` in your shell before running if you use non-defaults.
 
 ## CI pointers
 
-- Persist the `logs/` directory as build artifacts for debugging.
-- Use `docker compose pull` during CI warmup to avoid cold-start delays.
-- Increase `SE_SESSION_TIMEOUT` for long suites or reduce it if you want faster cleanup of orphan sessions.
+- Run `docker compose pull` during CI setup to ensure the image is cached.
+- Persist `logs/` and `browserless-data/` as artifacts if you need post-mortem analysis (screenshots, traces, etc.).
+- Tune `BROWSERLESS_MAX_CONCURRENT` per CI runner capacity to avoid timeouts.
 
 ## Troubleshooting
 
-- **Browser sessions never start**: ensure ports 4442-4444 are free and Docker Desktop has enough memory.
-- **VNC refuses connection**: some clients require the `vnc://` scheme (e.g., `vnc://localhost:5900`).
+- **HTTP 401 errors**: set the `TOKEN` environment variable in `docker-compose.yml` or remove `BROWSERLESS_TOKEN` if you don't want auth.
+- **Sessions queued too long**: increase `BROWSERLESS_MAX_CONCURRENT` or reduce suite parallelism.
+- **DevTools/WebSocket failures**: ensure port `${BROWSERLESS_DEBUG_PORT}` is reachable from your network.

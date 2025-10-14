@@ -1,4 +1,4 @@
-"""Minimal end-to-end smoke test for the Selenium Grid stack."""
+"""Minimal end-to-end smoke test for the browserless stack."""
 
 from __future__ import annotations
 
@@ -15,7 +15,8 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
 
-GRID_URL = os.getenv("SELENIUM_GRID_URL", "http://localhost:4444/wd/hub")
+GRID_URL = os.getenv("BROWSERLESS_WEBDRIVER_URL", "http://localhost:3000/webdriver")
+TOKEN = os.getenv("BROWSERLESS_TOKEN")
 TARGET_URL = os.getenv("TEST_TARGET_URL", "https://example.com")
 WAIT_SECONDS = int(os.getenv("TEST_WAIT_SECONDS", "30"))
 
@@ -23,9 +24,10 @@ WAIT_SECONDS = int(os.getenv("TEST_WAIT_SECONDS", "30"))
 def main() -> int:
     start = perf_counter()
     options = ChromeOptions()
-    options.set_capability("se:recordVideo", True)
     options.add_argument("--headless=new")
     options.add_argument("--disable-gpu")
+    if TOKEN:
+        options.set_capability("browserless:token", TOKEN)
 
     try:
         with webdriver.Remote(command_executor=GRID_URL, options=options) as driver:
@@ -38,7 +40,7 @@ def main() -> int:
         return 1
 
     duration = perf_counter() - start
-    print(f"Grid responded with page '{title}' in {duration:.2f}s via {GRID_URL}")
+    print(f"Browserless responded with page '{title}' in {duration:.2f}s via {GRID_URL}")
     return 0
 
 

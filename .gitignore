@@ -1,0 +1,12 @@
+# Local Python environment
+.venv/
+__pycache__/
+
+# Selenium artifacts
+videos/*.mp4
+logs/*.log
+logs/*.json
+
+# OS cruft
+.DS_Store
+Thumbs.db

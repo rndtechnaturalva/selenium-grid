@@ -1,68 +1,127 @@
+version: "3.9"
+
 services:
-  # Selenium Hub
   selenium-hub:
-    image: selenium/hub:4.15.0
+    image: selenium/hub:${SELENIUM_VERSION}
     container_name: selenium-hub
+    restart: unless-stopped
+    environment:
+      - SE_EVENT_BUS_HOST=selenium-hub
+      - SE_EVENT_BUS_PUBLISH_PORT=4442
+      - SE_EVENT_BUS_SUBSCRIBE_PORT=4443
+      - SE_SESSION_REQUEST_TIMEOUT=${SE_SESSION_REQUEST_TIMEOUT}
+      - SE_SESSION_TIMEOUT=${SE_SESSION_TIMEOUT}
+      - SE_ENABLE_TRACING=true
     ports:
-      - "4445:4442"
-      - "4446:4443"
-      - "4447:4444"
-    environment:
-      - GRID_MAX_SESSION=16
-      - GRID_BROWSER_TIMEOUT=300
-      - GRID_TIMEOUT=300
+      - "4442:4442"
+      - "4443:4443"
+      - "4444:4444"
     networks:
-      - selenium-grid
+      - ${GRID_NETWORK}
+    volumes:
+      - ./logs:/opt/selenium/logs
 
-  # Chrome Node
   chrome:
-    image: selenium/node-chrome:4.15.0
+    image: selenium/node-chrome:${SELENIUM_VERSION}
+    container_name: selenium-node-chrome
+    restart: unless-stopped
     depends_on:
       - selenium-hub
+    shm_size: 2gb
     environment:
-      - HUB_HOST=selenium-hub
-      - HUB_PORT=4444
-      - NODE_MAX_INSTANCES=2
-      - NODE_MAX_SESSION=2
+      - SE_EVENT_BUS_HOST=selenium-hub
+      - SE_EVENT_BUS_PUBLISH_PORT=4442
+      - SE_EVENT_BUS_SUBSCRIBE_PORT=4443
+      - SE_NODE_OVERRIDE_MAX_SESSIONS=${SE_NODE_OVERRIDE_MAX_SESSIONS}
+      - SE_NODE_MAX_SESSIONS=${SE_NODE_MAX_SESSIONS}
+      - SE_VNC_NO_PASSWORD=1
+      - SE_SCREEN_WIDTH=${SCREEN_WIDTH}
+      - SE_SCREEN_HEIGHT=${SCREEN_HEIGHT}
+      - SE_SCREEN_DEPTH=${SCREEN_DEPTH}
+      - SE_VIDEO_RECORD_SESSION=true
+      - SE_VIDEO_PATH=/opt/selenium/videos
+    ports:
+      - "5900:5900"
+      - "7900:7900"
     volumes:
-      - /dev/shm:/dev/shm
+      - ${VIDEO_OUTPUT}:/opt/selenium/videos
     networks:
-      - selenium-grid
-    deploy:
-      replicas: 2
+      - ${GRID_NETWORK}
 
-  # Firefox Node
   firefox:
-    image: selenium/node-firefox:4.15.0
+    image: selenium/node-firefox:${SELENIUM_VERSION}
+    container_name: selenium-node-firefox
+    restart: unless-stopped
     depends_on:
       - selenium-hub
+    shm_size: 2gb
     environment:
-      - HUB_HOST=selenium-hub
-      - HUB_PORT=4444
-      - NODE_MAX_INSTANCES=2
-      - NODE_MAX_SESSION=2
+      - SE_EVENT_BUS_HOST=selenium-hub
+      - SE_EVENT_BUS_PUBLISH_PORT=4442
+      - SE_EVENT_BUS_SUBSCRIBE_PORT=4443
+      - SE_NODE_OVERRIDE_MAX_SESSIONS=${SE_NODE_OVERRIDE_MAX_SESSIONS}
+      - SE_NODE_MAX_SESSIONS=${SE_NODE_MAX_SESSIONS}
+      - SE_VNC_NO_PASSWORD=1
+      - SE_SCREEN_WIDTH=${SCREEN_WIDTH}
+      - SE_SCREEN_HEIGHT=${SCREEN_HEIGHT}
+      - SE_SCREEN_DEPTH=${SCREEN_DEPTH}
+      - SE_VIDEO_RECORD_SESSION=true
+      - SE_VIDEO_PATH=/opt/selenium/videos
+    ports:
+      - "5901:5900"
+      - "7901:7900"
     volumes:
-      - /dev/shm:/dev/shm
+      - ${VIDEO_OUTPUT}:/opt/selenium/videos
     networks:
-      - selenium-grid
-    deploy:
-      replicas: 2
+      - ${GRID_NETWORK}
 
-  # Edge Node
   edge:
-    image: selenium/node-edge:4.15.0
+    image: selenium/node-edge:${SELENIUM_VERSION}
+    container_name: selenium-node-edge
+    restart: unless-stopped
+    depends_on:
+      - selenium-hub
+    shm_size: 2gb
+    environment:
+      - SE_EVENT_BUS_HOST=selenium-hub
+      - SE_EVENT_BUS_PUBLISH_PORT=4442
+      - SE_EVENT_BUS_SUBSCRIBE_PORT=4443
+      - SE_NODE_OVERRIDE_MAX_SESSIONS=${SE_NODE_OVERRIDE_MAX_SESSIONS}
+      - SE_NODE_MAX_SESSIONS=${SE_NODE_MAX_SESSIONS}
+      - SE_VNC_NO_PASSWORD=1
+      - SE_SCREEN_WIDTH=${SCREEN_WIDTH}
+      - SE_SCREEN_HEIGHT=${SCREEN_HEIGHT}
+      - SE_SCREEN_DEPTH=${SCREEN_DEPTH}
+      - SE_VIDEO_RECORD_SESSION=true
+      - SE_VIDEO_PATH=/opt/selenium/videos
+    ports:
+      - "5902:5900"
+      - "7902:7900"
+    volumes:
+      - ${VIDEO_OUTPUT}:/opt/selenium/videos
+    networks:
+      - ${GRID_NETWORK}
+
+  video-processor:
+    image: selenium/video:${SELENIUM_VIDEO_TAG}
+    container_name: selenium-video-processor
+    restart: unless-stopped
     depends_on:
       - selenium-hub
     environment:
-      - HUB_HOST=selenium-hub
-      - HUB_PORT=4444
-      - NODE_MAX_INSTANCES=2
-      - NODE_MAX_SESSION=2
+      - SE_EVENT_BUS_HOST=selenium-hub
+      - SE_EVENT_BUS_PUBLISH_PORT=4442
+      - SE_EVENT_BUS_SUBSCRIBE_PORT=4443
+      - SE_SCREEN_WIDTH=${SCREEN_WIDTH}
+      - SE_SCREEN_HEIGHT=${SCREEN_HEIGHT}
+      - SE_FRAME_RATE=24
+      - SE_VIDEO_PATH=/videos
     volumes:
-      - /dev/shm:/dev/shm
+      - ${VIDEO_OUTPUT}:/videos
     networks:
-      - selenium-grid
+      - ${GRID_NETWORK}
 
 networks:
   selenium-grid:
+    name: ${GRID_NETWORK}
     driver: bridge

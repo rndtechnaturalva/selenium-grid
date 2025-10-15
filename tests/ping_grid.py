@@ -15,7 +15,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
 
-GRID_URL = os.getenv("BROWSERLESS_WEBDRIVER_URL", "http://localhost:3000/webdriver")
+GRID_URL = os.getenv("BROWSERLESS_WEBDRIVER_URL", "http://selenium.nhi.co.id/webdriver")
 TOKEN = os.getenv("BROWSERLESS_TOKEN")
 TARGET_URL = os.getenv("TEST_TARGET_URL", "https://example.com")
 WAIT_SECONDS = int(os.getenv("TEST_WAIT_SECONDS", "30"))

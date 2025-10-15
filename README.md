@@ -11,9 +11,10 @@ This project packages [browserless](https://www.browserless.io/) via Docker Comp
 
 | Service | Image | Purpose | Ports |
 | --- | --- | --- | --- |
-| `browserless` | `browserless/chrome:${BROWSERLESS_TAG}` | Headless Chrome runtime with browserless API & WebDriver bridge | `${BROWSERLESS_PORT}` (API), `${BROWSERLESS_DEBUG_PORT}` (DevTools) |
+| `browserless` | `browserless/chrome:${BROWSERLESS_TAG}` | Headless Chrome runtime with browserless API & WebDriver bridge | (internal) |
+| `nginx` | `nginx:alpine` | Reverse proxy exposing browserless via `${BROWSERLESS_HOST}` | 80 (HTTP) |
 
-Logs are written to `./logs`, while browserless state (cache, user data, screenshots) persists in `./browserless-data`.
+Logs are written to `./logs`, while browserless state (cache, user data, screenshots) persists in `./browserless-data`. Traffic flows through Nginx which proxies to the internal browserless container.
 
 ## Getting started
 
@@ -31,7 +32,9 @@ Logs are written to `./logs`, while browserless state (cache, user data, screens
    docker compose logs -f browserless
    ```
 
-4. Hit the API at <http://localhost:${BROWSERLESS_PORT}/> (or the hostname you configured) to see the status JSON.
+4. Hit the API at <http://selenium.nhi.co.id/> (or the hostname you configured) to see the status JSON.
+
+> **Note:** The stack now includes an Nginx reverse proxy listening on port 80, which routes all traffic to the browserless container. Direct access to browserless ports is not exposed to the host; instead, use the hostname defined in `BROWSERLESS_HOST`.
 
 ## Using browserless from your code
 
@@ -45,7 +48,7 @@ options = Options()
 options.add_argument("--disable-gpu")
 
 driver = webdriver.Remote(
-    command_executor="http://localhost:3000/webdriver",
+    command_executor="http://selenium.nhi.co.id/webdriver",
     options=options,
 )
 driver.get("https://example.com")
@@ -53,7 +56,7 @@ print(driver.title)
 driver.quit()
 ```
 
-Replace `localhost:3000` with `selenium.nhi.co.id:${BROWSERLESS_PORT}` for remote access. If you set `BROWSERLESS_TOKEN`, add:
+If you set `BROWSERLESS_TOKEN`, add:
 
 ```python
 options.set_capability("browserless:token", "your-token")
@@ -66,7 +69,7 @@ Browserless also exposes the standard `/playwright` and `/puppeteer` endpoints. 
 ```javascript
 import { chromium } from 'playwright';
 
-const browser = await chromium.connectOverCDP('ws://selenium.nhi.co.id:3000');
+const browser = await chromium.connectOverCDP('ws://selenium.nhi.co.id');
 const context = await browser.newContext();
 const page = await context.newPage();
 await page.goto('https://example.com');

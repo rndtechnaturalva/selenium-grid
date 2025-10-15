@@ -1,22 +1,44 @@
-# Browserless Automation Stack
+# Browserless Automation Stack (Plesk-Optimized)
 
-This project packages [browserless](https://www.browserless.io/) via Docker Compose so you can run headless Chrome for automation, scraping, or testing without maintaining a full Selenium Grid.
+This project packages [browserless](https://www.browserless.io/) via Docker Compose for automation, scraping, or testing with headless Chrome. It's designed to work seamlessly with **Plesk Docker Proxy Rules** so you don't need an additional Nginx container.
 
 ## Requirements
 
-- Docker Desktop 4.0+ with Compose V2 (`docker compose` command)
+- Docker Desktop 4.0+ with Compose V2 (`docker compose` command), or **Plesk with Docker support**
 - Roughly 2 GB of free RAM per concurrent Chrome session (adjust via `.env`)
 
 ## What's inside
 
 | Service | Image | Purpose | Ports |
 | --- | --- | --- | --- |
-| `browserless` | `browserless/chrome:${BROWSERLESS_TAG}` | Headless Chrome runtime with browserless API & WebDriver bridge | (internal) |
-| `nginx` | `nginx:alpine` | Reverse proxy exposing browserless via `${BROWSERLESS_HOST}` | 80 (HTTP) |
+| `browserless` | `browserless/chrome:${BROWSERLESS_TAG}` | Headless Chrome runtime with browserless API & WebDriver bridge | `${BROWSERLESS_PORT}` (default 3000) |
 
-Logs are written to `./logs`, while browserless state (cache, user data, screenshots) persists in `./browserless-data`. Traffic flows through Nginx which proxies to the internal browserless container.
+Logs are written to `./logs`, while browserless state (cache, user data, screenshots) persists in `./browserless-data`.
 
 ## Getting started
+
+### Option A: Plesk Docker Proxy (Recommended)
+
+1. Update `.env` with your settings (especially `BROWSERLESS_TOKEN` for security).
+2. In Plesk, go to **Docker** → Deploy your compose stack.
+3. After the container starts, go to **Domains** → your domain → **Apache & Nginx Settings** → **Additional nginx directives** and add:
+
+   ```nginx
+   location / {
+       proxy_pass http://127.0.0.1:3000;
+       proxy_http_version 1.1;
+       proxy_set_header Upgrade $http_upgrade;
+       proxy_set_header Connection "upgrade";
+       proxy_set_header Host $host;
+       proxy_set_header X-Real-IP $remote_addr;
+       proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+       proxy_read_timeout 300s;
+   }
+   ```
+
+4. Click **OK** and **Apply**. Now `http://selenium.nhi.co.id/` will proxy to the browserless container on port 3000.
+
+### Option B: Manual Docker Compose
 
 1. Update `.env` with the host name you will expose publicly (`BROWSERLESS_HOST`) and tweak concurrency limits if needed.
 2. Start browserless:
@@ -32,9 +54,7 @@ Logs are written to `./logs`, while browserless state (cache, user data, screens
    docker compose logs -f browserless
    ```
 
-4. Hit the API at <http://selenium.nhi.co.id/> (or the hostname you configured) to see the status JSON.
-
-> **Note:** The stack now includes an Nginx reverse proxy listening on port 80, which routes all traffic to the browserless container. Direct access to browserless ports is not exposed to the host; instead, use the hostname defined in `BROWSERLESS_HOST`.
+4. Hit the API at <http://selenium.nhi.co.id/> (if using Plesk proxy) or <http://localhost:3000/> (direct access) to see the status JSON.
 
 ## Using browserless from your code
 
@@ -46,6 +66,7 @@ from selenium.webdriver.chrome.options import Options
 
 options = Options()
 options.add_argument("--disable-gpu")
+options.set_capability("browserless:token", "xmH3Xg1mYkIqX1Yj")
 
 driver = webdriver.Remote(
     command_executor="http://selenium.nhi.co.id/webdriver",
@@ -56,11 +77,7 @@ print(driver.title)
 driver.quit()
 ```
 
-If you set `BROWSERLESS_TOKEN`, add:
-
-```python
-options.set_capability("browserless:token", "your-token")
-```
+> Use your actual hostname and adjust the token if you changed `BROWSERLESS_TOKEN` in `.env`.
 
 ### Playwright / Puppeteer
 
@@ -83,7 +100,7 @@ Key environment variables live in `.env`:
 
 - `BROWSERLESS_TAG` — docker image tag, e.g. `latest` or a pinned version.
 - `BROWSERLESS_HOST` — host name you expose to clients (`selenium.nhi.co.id`).
-- `BROWSERLESS_PORT` / `BROWSERLESS_DEBUG_PORT` — forwarded ports for the HTTP API and DevTools protocol.
+- `BROWSERLESS_PORT` — container port to publish on the host (default `3000`).
 - `BROWSERLESS_MAX_CONCURRENT` — maximum parallel sessions before queueing.
 - `BROWSERLESS_QUEUE_LENGTH` — how many queued sessions are allowed.
 - `BROWSERLESS_PREBOOT` — whether to keep Chrome warm for faster cold starts.

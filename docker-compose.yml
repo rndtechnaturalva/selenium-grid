@@ -14,22 +14,11 @@ services:
       - SCREEN_HEIGHT=${BROWSERLESS_SCREEN_HEIGHT}
       - SCREEN_DEPTH=${BROWSERLESS_SCREEN_DEPTH}
       - TOKEN=${BROWSERLESS_TOKEN}
+    ports:
+      - "${BROWSERLESS_PORT}:3000"
     volumes:
       - ./logs:/home/browserless/logs
       - ./browserless-data:/data
-    networks:
-      - ${GRID_NETWORK}
-
-  nginx:
-    image: nginx:alpine
-    container_name: browserless-nginx
-    restart: unless-stopped
-    depends_on:
-      - browserless
-    ports:
-      - "80:80"
-    volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
     networks:
       - ${GRID_NETWORK}
 
